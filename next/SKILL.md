@@ -2,7 +2,7 @@
 name: next
 description: Navigate GitHub issues to find the next actionable step toward a project goal and recommend an AI Hero main-flow skill. Use for /next, /next bugs, /next triage, /next ready, or deciding what work to do next.
 metadata:
-  version: "1.5.4"
+  version: "1.5.5"
 ---
 
 # Next
@@ -42,7 +42,7 @@ Use native parent/child relationships. **Parentage is not a blocker.** Use close
 
 ### 3. Discover the complete lightweight candidate set
 
-For the chosen scope/filter, enumerate **all matching open issues**, using pagination and narrow native queries. Include open descendants at every level; verify ancestry when the query does not directly express native hierarchy. Do not scan all closed issues. Distinguish parent maps, specifications, delivery tasks, bugs, review requests, acceptance gates, and release decisions.
+For the chosen scope/filter, enumerate **all matching open issues**, using pagination and narrow native queries. Include open descendants at every level; verify ancestry when the query does not directly express native hierarchy. Do not scan all closed issues. Distinguish parent maps, specifications, delivery tasks, bugs, review requests, acceptance gates, and release decisions. **Treat organizational parents as navigation/context by default, not pickup work.** A parent is itself a recommendation only if a concrete, independently actionable decision, specification, or governance gap belongs to the parent rather than to an existing child. Before selecting a parent, inspect its open native children/descendants for an issue already owning that action; prefer that actionable child. Do not invent a new child or duplicate work.
 
 For `/next triage`, evaluate **every open issue with the repository's documented triage label** at least at lightweight level. This includes parent and gate issues, but their roles affect ranking. For `/next ready`, enforce the repository's actual readiness conventions. For `/next` across a scope, compare candidates across the **whole main-flow lifecycle**, not only implementation-ready tickets.
 
@@ -52,7 +52,7 @@ Lightweight comparison means examining the entire candidate set's titles, states
 
 ### 4. Verify the actionable dependency frontier
 
-Before ranking, inspect **native GitHub relationships** for the shortlist, using the repository's actual dependency endpoints:
+Before ranking, inspect **native GitHub relationships for every proposed final recommendation**, using the repository's actual hierarchy and dependency endpoints. Apply the same verification standard to parent maps and delivery tickets:
 
 - `blocked_by`: fetch the linked issues and **verify each issue's current open/closed state**. A count alone is insufficient.
 - `blocking`: verify downstream issues when claiming that completing a candidate unlocks other work.
@@ -65,9 +65,9 @@ If a candidate's proposed next step depends on an **open** blocker, follow `bloc
 
 **Never recommend blocked implementation or approval as ready work.** Do not rank a high-level blocked gate first solely because it is strategically important. Instead identify the nearest verified actionable prerequisite or, if none exists, report the blocker and the necessary human/coordination step.
 
-For every final recommendation, verify the **specific next action** can start now, and check native blockers to the extent relevant to that action. If dependency status cannot be verified, say **unverified**, not **unblocked**. Refill the shortlist with additional candidates when verification eliminates too many; aim for ten credible items when available.
+For every final recommendation, verify its **current open state, native parent/ancestry, native `blocked_by` relationships and current blocker states, ownership/assignment, and the specific next action**. For a parent, also verify whether an open descendant already owns the proposed action. A failure to verify these relationships **disqualifies the candidate from the verified ranked list**; report the gap separately and inspect a replacement candidate. Do not use “dependencies not checked” as a footnote on a recommendation. Refill the shortlist as necessary; aim for ten credible items when available, but never invent or pad.
 
-**Done when:** every displayed recommendation has a verified action, a checked dependency position, and a clear reason it advances the goal; unresolved verification gaps are explicit.
+**Done when:** every displayed recommendation has verified open state, ancestry, native blockers, ownership, and an actionable next step; parent recommendations have been checked against open descendants. If fewer than ten remain, explain briefly whether this reflects the verified candidate pool or incomplete verification.
 
 ### 5. Choose the main-flow handoff
 
@@ -87,9 +87,9 @@ Do not recommend specialized techniques (`/tdd`, `/research`, `/diagnosing-bugs`
 
 ### 6. Rank, present, stop
 
-Rank by: **(1) verified downstream unblocking impact; (2) contribution to the selected business outcome; (3) whether the next step is actionable now; (4) ability to turn unclear work into agent-ready work; (5) ownership and explicit repository priority.** Compare across workflow stages for broad `/next`; respect the user's filter for `/next triage`, `/next bugs`, and `/next ready`. Use judgment, not fabricated scores or quotas. Avoid filling the list with blocked release/acceptance gates when actionable prerequisite work exists.
+Rank by: **(1) verified downstream unblocking impact; (2) contribution to the selected business outcome; (3) whether the next step is actionable now; (4) ability to turn unclear work into agent-ready work; (5) ownership and explicit repository priority.** Compare across workflow stages for broad `/next`; respect the user's filter for `/next triage`, `/next bugs`, and `/next ready`. Use judgment, not fabricated scores or quotas. Avoid filling the list with blocked release/acceptance gates or organizational parent maps when actionable prerequisite or descendant work exists. Rank verified actionable leaf tickets ahead of parents unless the parent has a unique, concrete decision or governance action.
 
-Present **up to ten distinct numbered actions**, highest value first. Show fewer only when fewer credible candidates exist; do not pad with irrelevant tickets.
+Present **up to ten distinct numbered actions**, highest value first. Show fewer only when fewer credible candidates can be verified after examining replacement candidates; do not pad with irrelevant tickets. Keep unverified candidates outside the ranked list and disclose them briefly if material.
 
 Format:
 
