@@ -1,76 +1,85 @@
 ---
 name: next
-description: Use when the user wants to find the next GitHub issue to move forward, explore a backlog, or choose an issue for an existing workflow.
+description: Find the next meaningful action in a GitHub issue backlog and recommend the appropriate AI Hero skill. Use for /next, /next bugs, /next triage, /next ready, or choosing what to work on next.
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
 ---
 
 # Next
 
-Find the next issue worth moving forward. The issue tracker is the **map**; the **frontier** is open work whose next step can be taken. Navigate the map, identify the frontier, and hand the chosen issue to the right existing skill. `/next` finds work; it does not do the work.
+Find what can move the project toward its goal, then recommend **one next action and the AI Hero skill to use**. Stop after the recommendation. This skill navigates and advises; it does not do the work.
 
-## Start
+## Invocation
 
-- `/next` — explore the repository, starting at its documented root scopes.
-- `/next <number>` — explore that issue and its descendants, or assess the issue itself if it has no children.
-- `/next bugs` — find open bugs and group them by their next action.
-- `/next triage` — find incoming issues that need triage.
-- `/next ready` — find unclaimed, unblocked issues ready for implementation.
-- `/next --version` — print `metadata.version` from this loaded skill and stop.
+- `/next` — choose a goal or scope through the repository's issue hierarchy.
+- `/next <issue-number>` — start at that issue, or its descendants if it groups work.
+- `/next bugs` — find open bugs needing a next action.
+- `/next triage` — find incoming issues that still need triage.
+- `/next ready` — find unclaimed, unblocked work ready for agent delivery.
+- `/next --version` — report `metadata.version` and stop without querying GitHub.
 
-Shortcuts search the whole repository unless a scope is explicitly supplied. Continue within the scope already selected in this conversation when the user's reply is an unambiguous menu choice. For unknown arguments, explain the supported starts and ask what they want; do not silently interpret them as filters.
+These are starting points, **not a filter language**. Do not introduce combined expressions or extra parameters. A user can narrow the scope conversationally. With no scope supplied, start from the repository's documented roots; do not infer the active workstream from the branch or previous sessions.
 
-## 1. Orient
+## Process
 
-Identify the repository from the current Git remote or the user's explicit reference. Read its `AGENTS.md` and issue-tracker/triage conventions, if present. The repository defines roots, labels, ownership, acceptance, and dependencies; this skill defines none of them.
+### 1. Orient
 
-Use the installed **GitHub CLI** (`gh issue`, `gh pr`, `gh api`) for discovery, native sub-issues, and blockers. Use pagination and `--json`/`--jq` or `jq` to process results. Check command help when needed. Prefer these native interfaces to Python scripts for routine GitHub queries.
+Resolve the current repository. Read its issue-tracker conventions and agent instructions (`AGENTS.md`, tracker and triage docs where present). Identify the project's documented goals and root issue maps. Do not invent a goal, priority, or ownership rule.
 
-Find open and closed issues as needed to reconstruct the map. A complete issue inventory is not proof that every parent/child relationship has been traversed.
+Use the installed native GitHub CLI (`gh issue`, `gh pr`, `gh api`, including pagination) for queries. Use `--json`, `--jq`, or `jq` to process results. Do not use Python for routine GitHub queries or hierarchy traversal. If the tracker is not GitHub, follow its documented interface instead of pretending `gh` applies.
 
-**Done when:** the repository, its issue conventions, and the starting scope are established, or any uncertainty is stated.
+**Done when:** the repository, goal map, and applicable tracker rules are clear, or limitations are stated.
 
-## 2. Navigate the map
+### 2. Navigate
 
-If the user did not choose a specific issue or shortcut, show a short **numbered** menu of real root scopes. Let them drill into workstreams and meaningful feature groupings, or choose **This entire scope**. Preserve a breadcrumb and numbered **Back** option. Every selectable choice gets its own number.
+For `/next` or a broad scope, show short, individually **numbered** choices from the actual hierarchy. Let the user drill down through initiatives, workstreams, and feature groups, or choose the entire current scope. Keep a breadcrumb and numbered Back option. At the root, call the repository-wide choice **Entire repository — find work across all initiatives**.
 
-Follow native parent/child relationships, including through closed parents. Parents group work; they do not automatically block it. Closed issues supply structure and relevant decisions, never pickup candidates. Where hierarchy is unavailable, use only repository-documented grouping conventions and label the view as a fallback.
+Traverse native parent/child relationships to find open descendants, including those under closed intermediate issues. Closed issues provide structure, progress, and relevant decisions; they are never pickup candidates. Parentage is not a blocking dependency. Where hierarchy is unavailable, label any documented grouping as a view, not as a native parent relationship.
 
-Show direct-child counts only as direct-child counts. Show descendant totals only after verifying the descendant tree. If no meaningful grouping exists, say so and move on.
+Use lightweight discovery during navigation; do not fetch every closed issue's comments or perform readiness audits before a scope is selected. Distinguish immediate-child counts from descendant counts, and disclose incomplete traversal.
 
-**Done when:** the user has chosen the area of work, or a shortcut has established it.
+**Done when:** the user has chosen a scope, issue, or shortcut search.
 
-## 3. Find the frontier
+### 3. Find what can move forward
 
-Traverse all descendants of the chosen scope, including descendants of closed issues. Follow pagination; track missing relationships and duplicate references. Consider only **open actionable issues** for pickup. If the selected issue is itself actionable, include it and say so.
+Evaluate the **open actionable issues** in the chosen scope. Check their current state, relevant specifications and acceptance criteria, assignments or claims, and **native open blockers**. Inspect linked PRs and comments when they affect the next action. Verify uncertain facts rather than treating missing data as proof of readiness. Keep related issues outside the selected hierarchy visible as dependencies, not invented descendants.
 
-Check the next gate for each relevant open issue using its body, labels, assignment, native blockers, and, where necessary, comments and linked PRs. Verify blocker states rather than assuming a dependency is resolved. Read closed issue details only when they clarify an open issue. Keep issues outside the selected subtree out of its pickup list, even when they are related dependencies.
+Look for the next meaningful gate toward the selected goal:
 
-For a normal navigation session, offer these **numbered next actions** before listing tickets:
+- **Clarify:** a decision, requirement, or domain question is unresolved.
+- **Specify:** the intended outcome is known but lacks a usable specification.
+- **Break down:** an approved specification needs agent-sized, dependency-aware tickets.
+- **Triage:** an incoming bug or request has not been assessed or routed.
+- **Implement:** a sufficiently specified ticket is open, unblocked, and unclaimed.
+- **Review:** a real PR or change awaits review.
+- **Validate:** human acceptance, evidence, or sign-off is the next gate.
 
-1. **Needs decisions** — unresolved questions; hand off to `/grill-with-docs`.
-2. **Needs triage** — incoming reports or requests not yet evaluated; hand off to `/triage`.
-3. **Ready to implement** — sufficiently specified, unblocked, unclaimed work; hand off to `/implement`.
-4. **Needs review** — an actual reviewable diff/PR or explicit review request; hand off to `/code-review`.
+Do not automatically send tickets produced by `/to-tickets` back through `/triage`. Assigned work is not available for new pickup. A blocked issue may still have a useful preparation action, but do not recommend implementing it before its blockers clear.
 
-For `/next bugs`, find open issues classified as bugs under the repository's conventions, then offer the relevant next actions. For `/next triage` and `/next ready`, go straight to the corresponding ticket list. Do not send tickets already produced by `/to-tickets` back through `/triage` merely because they are open.
+Prefer actions that unblock other work or advance an explicit business outcome. Do not fabricate priority. If nothing is ready for an agent, say what prevents progress and identify the next human or clarification action. If coverage is incomplete, label conclusions provisional.
 
-A label is evidence, not a complete readiness check. Assigned work is claimed; show it as context, not unclaimed pickup. Human acceptance or business validation is a human gate, not an implementation or code-review ticket. Do not present an issue with unknown blocker state as verified ready.
+**Done when:** a short, evidence-based set of next actions is identified, or the reason none can be verified is clear.
 
-**Done when:** every open actionable issue in the selected scope has been considered for the requested next action, or the result is explicitly provisional.
+### 4. Recommend and stop
 
-## 4. Let the user choose
+Show **up to five numbered next actions**, not a menu of empty workflow queues and not the same tickets twice. For each, give the linked issue title, what moves forward, why it matters, any blocker or claim, and the suggested AI Hero skill. Let the user select an action when there is more than one credible choice.
 
-Show a short numbered list of matching tickets (about five at a time). Use **linked titles**, not bare issue numbers. For each, give a one-line reason it matters, its next gate, and any claim or blocker that affects pickup. Include numbered **Show more** and **Back** choices.
+For the selected action, recheck the issue's relevant status and give a compact final handoff:
 
-State how many open candidates were checked and whether the result is complete. Say **no available tickets** only when coverage and eligibility were verified; otherwise explain what remains unknown. Prefer repository-defined priority and work that unblocks other work. Never invent urgency.
+- **Next action:** issue title and link, or the named human gate.
+- **Why now:** the business outcome or dependency this advances.
+- **Use:** the appropriate existing AI Hero skill, such as `/grill-with-docs`, `/to-spec`, `/to-tickets`, `/triage`, `/implement`, or `/code-review`.
+- **Run:** a copyable invocation with the issue link and concise context.
+- **Expected result:** the artifact or decision that should exist after that skill finishes.
 
-**Done when:** the user chooses a ticket or understands why none is available.
+Recommend only skills that are actually available; if a needed skill is not installed, say so and name the required workflow without pretending it can run. For human validation, recommend the human acceptance process rather than mislabeling it as an AI Hero skill.
 
-## 5. Hand off
+**Stop here.** Do not invoke the recommended skill, start an interview, write a spec, create tickets, implement, review code, or perform human acceptance. The user decides when to continue.
 
-Re-read the chosen issue and its relevant comments, native parent, blockers, assignee, and linked PRs. Give the user the issue link, why it is next, and the appropriate existing skill. Invoke that skill only if the environment supports it and the user chooses to proceed; otherwise provide the exact command and stop.
+## Boundaries
 
-The destination is **completed, validated work**, but `/next` stops at the handoff. The receiving skill owns its workflow and approval rules.
-
-**Read-only boundary:** navigation never creates, assigns, labels, comments on, closes, reparents, or changes dependencies on issues or PRs. Obtain explicit approval before any GitHub mutation, and let the appropriate workflow carry it out.
+- `/next` is **read-only**. Do not create, assign, claim, comment on, close, relabel, reparent, or change dependencies of GitHub issues or PRs.
+- Follow the repository's hierarchy, label vocabulary, acceptance rules, and relevant ADRs. Keep repository-specific IDs and policies out of this generic skill.
+- Prefer concise, business-oriented wording and linked issue **names**, not walls of issue numbers.
+- Never claim a queue is empty or work is unblocked unless the relevant open candidates and dependencies have been verified. Explain partial coverage plainly.
+- The outcome of `/next` is **a recommendation, not execution**.
