@@ -2,7 +2,7 @@
 name: next
 description: Navigate GitHub issues to find the next actionable step toward a project goal and recommend an AI Hero main-flow skill. Use for /next, /next bugs, /next triage, /next ready, or deciding what work to do next.
 metadata:
-  version: "2.0.0"
+  version: "2.0.1"
 ---
 
 # Next
@@ -24,7 +24,7 @@ Filters narrow the candidate set. They do **not** replace judgment about what ac
 
 ### 1. Establish the goal
 
-Identify the repository and read its relevant issue-tracker, label, and hierarchy conventions. Use the repository's own documentation rather than hardcoding project-specific labels or issue numbers. If the goal is implicit, derive it from the selected root/initiative issue and its description; if unclear, ask one focused question.
+Identify the repository and read its relevant issue-tracker, label, and hierarchy conventions. Use the repository's own documentation rather than hardcoding project-specific labels or issue numbers. If the goal is implicit, derive it from the selected root/initiative issue and its description. When user intent, success criteria, or priorities would materially change the ranking, ask one focused question. For a substantial unresolved goal or trade-off, use the existing `/grill-me` skill as an optional interactive clarification step, then resume `/next` with the agreed goal. Keep the interview proportional; do not invoke it for a clear request. Investigate GitHub facts yourself rather than asking the user to retrieve them. `/grill-me` clarifies navigation decisions; it never replaces `/grill-with-docs` or another main-flow handoff.
 
 For `/next` without a scope, present numbered root initiatives plus **Entire repository**. Navigate with numbered workstreams/feature groups, **Entire scope**, and **Back**; show a short breadcrumb. A user may select a whole scope without drilling down. A filter may also be narrowed to a goal conversationally.
 
@@ -42,7 +42,7 @@ Identify the **work frontier**: issues that can advance the goal directly, prepa
 
 ### 3. Verify actionability and choose the handoff
 
-For each proposed recommendation, check its current open state, native parentage, assignee, relevant issue details, and native `blocked_by` edges. Check whether referenced blockers are still open; use `blocking` edges only when claiming downstream unblocking impact. Expand the dependency chain **only as needed** to find a genuinely actionable prerequisite. Do not infer no blockers from missing or failed data.
+For each proposed recommendation, check its current open state, native parentage, assignee, relevant issue details, and native `blocked_by` edges to the extent necessary for the proposed action. Check whether referenced blockers are still open; use `blocking` edges only when claiming downstream unblocking impact. Expand the dependency chain **only as needed** to find a genuinely actionable prerequisite. Do not infer no blockers from missing or failed data. Verification is action-specific: uncertainty about implementation readiness may itself make `/triage` actionable; it does not disqualify a candidate from triage.
 
 **Actionable means the recommended step can make meaningful progress now**, not necessarily that implementation can start:
 
@@ -67,6 +67,6 @@ Output a compact numbered list, with scope and coverage stated briefly:
 `1. [Issue title (#123)](https://github.com/OWNER/REPO/issues/123) — /to-spec`
 `   Why: Clarifying this workflow enables two dependent delivery tickets.`
 
-Each item has a **real issue link**, exactly one recommended main-flow skill (or **Human action**), and a concrete reason tied to the goal. Mention an open delivery blocker when relevant, distinguishing it from a blocker to the *recommended* preparation step. If fewer than ten qualify, give a brief, evidence-based explanation; if discovery was incomplete, mark the result provisional.
+Each item has a **real issue link**, exactly one recommended main-flow skill (or **Human action**), and a concrete reason tied to the goal. Mention an open delivery blocker when relevant, distinguishing it from a blocker to the *recommended* preparation step. If fewer than ten qualify, continue examining plausible candidates before concluding that the pool is exhausted; give a brief, evidence-based explanation. If discovery was incomplete, mark the result provisional without presenting unverified execution readiness as fact. Missing issue information can justify a concrete `/triage` recommendation when the issue itself is verified open and relevant.
 
 **Stop.** Do not run the recommended skill, edit issues, change labels, assign work, or modify GitHub.
