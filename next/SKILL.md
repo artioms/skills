@@ -2,111 +2,71 @@
 name: next
 description: Navigate GitHub issues to find the next actionable step toward a project goal and recommend an AI Hero main-flow skill. Use for /next, /next bugs, /next triage, /next ready, or deciding what work to do next.
 metadata:
-  version: "1.5.5"
+  version: "2.0.0"
 ---
 
 # Next
 
-Find the work that can move the selected goal forward. Present **up to ten ranked, actionable open issues**, with the appropriate **AI Hero main-flow skill** beside each. **Stop after recommending.** This is a read-only navigator, not a delivery workflow.
+Navigate from a project goal to the most valuable actions that can advance it now. Recommend **up to ten ranked GitHub issues**, each with its appropriate AI Hero main-flow skill, then **stop**. This skill is read-only: it recommends work; the other skills perform it.
 
-## Invocation
+## Invocations
 
-- `/next` — navigate the repository's documented initiatives and workstreams.
-- `/next <issue-number>` — inspect that issue or navigate its open descendants.
-- `/next bugs` — rank open bug issues by their next actionable step.
-- `/next triage` — rank open issues carrying the repository's triage label.
-- `/next ready` — rank open, unclaimed, unblocked agent-delivery issues.
-- `/next --version` — print `metadata.version` and stop; do not query GitHub.
+- `/next` — navigate to a goal/scope, then rank actions across the main flow.
+- `/next <issue-number>` — use that issue as the goal; explore open descendants and prerequisites, or assess the issue itself when appropriate.
+- `/next bugs` — focus on open bugs; choose the next appropriate main-flow step for each.
+- `/next triage` — focus on open issues marked for triage; determine the useful next action, which may be `/triage` or another main-flow skill if the evidence warrants it.
+- `/next ready` — focus on open, unclaimed delivery work that can start now; normally `/implement`.
+- `/next --version` — print `metadata.version` from the installed `SKILL.md` YAML frontmatter and stop. Do not look for `metadata.json` or query GitHub.
 
-These are simple entry points, not a query language. Narrow the scope conversationally. Never guess the active workstream from the branch or a previous session.
+Filters narrow the candidate set. They do **not** replace judgment about what action will move the goal forward.
 
-## Process
+## Workflow
 
-### 1. Orient
+### 1. Establish the goal
 
-Identify the current repository and read its relevant agent, issue-tracker, label, and hierarchy conventions. Use the documented initiative roots and goals, not invented priorities.
+Identify the repository and read its relevant issue-tracker, label, and hierarchy conventions. Use the repository's own documentation rather than hardcoding project-specific labels or issue numbers. If the goal is implicit, derive it from the selected root/initiative issue and its description; if unclear, ask one focused question.
 
-Use the **native GitHub CLI** (`gh issue`, `gh pr`, `gh api`, `--jq`/`jq`) and targeted, paginated queries. Prefer `gh issue list --state open` with the relevant label/search/scope and only required `--json` fields. Use `gh issue view --json` for shortlisted issues and `gh api` for native sub-issues and dependency relationships. Check supported flags/endpoints against the installed `gh` version when necessary. Reuse retrieved results; do not use Python for routine GitHub querying or traversal. Never confuse a page limit with complete coverage.
+For `/next` without a scope, present numbered root initiatives plus **Entire repository**. Navigate with numbered workstreams/feature groups, **Entire scope**, and **Back**; show a short breadcrumb. A user may select a whole scope without drilling down. A filter may also be narrowed to a goal conversationally.
 
-**Done when:** repository, goal, root map, and tracker conventions are established or gaps are disclosed.
+**Complete when:** the goal, repository, scope, and optional filter are clear.
 
-### 2. Navigate
+### 2. Discover relevant open issues
 
-For broad `/next`, present concise **numbered** choices: initiatives, workstreams, and feature/specification groupings, plus **Entire scope**. Keep a breadcrumb. Offer **Back** only below the repository root. Name the repository-wide option **Entire repository — find work across all initiatives**. Avoid decorative headings such as “Offering nine choices.”
+Use targeted, paginated native GitHub CLI queries (`gh issue`, `gh api`, `jq`), with explicit `--repo OWNER/REPO` where possible. Fetch lightweight fields first. Inspect the relevant open issues across the chosen scope/filter, not merely the first page or first promising match. A failed query is not an empty backlog.
 
-Use native parent/child relationships. **Parentage is not a blocker.** Use closed issues only when needed for initial hierarchy orientation, ancestry, or historical decisions. Discover all pickup candidates from **open issues only**; never recommend closed issues.
+Use native GitHub parent/sub-issue relationships to navigate the scope. Closed issues are historical context, never recommendations. If a parent is closed while descendants remain open, flag the hierarchy inconsistency and retain those open descendants. Parentage alone does not mean blocked.
 
-**Hierarchy invariant:** a parent stays open while any descendant remains open. A closed parent with an open descendant is a governance violation: flag it, preserve visibility of the open descendant, and never silently discard that work. Closing all children does not itself prove parent acceptance. State whether counts mean direct children or all descendants.
+Identify the **work frontier**: issues that can advance the goal directly, prepare later work, or remove a prerequisite. Prefer concrete leaf work over organizational parent maps. A parent qualifies only when it has its own unresolved, actionable decision or preparation task.
 
-**Done when:** the user selects a scope, issue, or shortcut.
+**Complete when:** there is a diverse candidate pool spanning plausible next actions, or an explicit retrieval limitation.
 
-### 3. Discover the complete lightweight candidate set
+### 3. Verify actionability and choose the handoff
 
-For the chosen scope/filter, enumerate **all matching open issues**, using pagination and narrow native queries. Include open descendants at every level; verify ancestry when the query does not directly express native hierarchy. Do not scan all closed issues. Distinguish parent maps, specifications, delivery tasks, bugs, review requests, acceptance gates, and release decisions. **Treat organizational parents as navigation/context by default, not pickup work.** A parent is itself a recommendation only if a concrete, independently actionable decision, specification, or governance gap belongs to the parent rather than to an existing child. Before selecting a parent, inspect its open native children/descendants for an issue already owning that action; prefer that actionable child. Do not invent a new child or duplicate work.
+For each proposed recommendation, check its current open state, native parentage, assignee, relevant issue details, and native `blocked_by` edges. Check whether referenced blockers are still open; use `blocking` edges only when claiming downstream unblocking impact. Expand the dependency chain **only as needed** to find a genuinely actionable prerequisite. Do not infer no blockers from missing or failed data.
 
-For `/next triage`, evaluate **every open issue with the repository's documented triage label** at least at lightweight level. This includes parent and gate issues, but their roles affect ranking. For `/next ready`, enforce the repository's actual readiness conventions. For `/next` across a scope, compare candidates across the **whole main-flow lifecycle**, not only implementation-ready tickets.
+**Actionable means the recommended step can make meaningful progress now**, not necessarily that implementation can start:
 
-Lightweight comparison means examining the entire candidate set's titles, states, labels, assignees, roles, hierarchy location, and relevant readily available descriptions. It does **not** require fetching all comments, blocker lists, or full histories. Use these signals to identify a broad shortlist covering plausible high-impact actions across the goal and workflow stages. Do not select only the first page, first ten search results, or most prominent milestone titles.
+- **`/triage`** — there is a concrete uncertainty or classification/ownership/dependency/readiness question to resolve. An open delivery blocker does not automatically prevent triage. A `needs-triage` label is a discovery signal, not proof that triage is the best handoff.
+- **`/grill-with-docs`** — requirements or decisions need structured clarification using project documentation.
+- **`/to-spec`** — a sufficiently understood goal needs a written specification.
+- **`/to-tickets`** — a sufficiently specified scope needs actionable delivery tickets.
+- **`/implement`** — an adequately specified, open, unclaimed delivery issue has no open native blockers.
+- **`/code-review`** — there is an actual reviewable PR or explicit review request.
+- **Human action** — an approval, acceptance, or decision cannot be delegated to the available main-flow skills.
 
-**Done when:** every matching open candidate has been considered at lightweight level, with total coverage and any inaccessible records stated. If this cannot be achieved, label the subsequent ranking **provisional** and never claim it is the repository's best ten.
+For `/next ready`, show only verified implementation-ready issues. For `/next triage`, search the triage-labeled set, but choose the *actual* next action: a ready ticket may warrant `/implement`, while an unresolved issue warrants `/triage` or preparation. If the label conflicts with reality, briefly identify the mismatch. For `/next bugs`, retain the bug filter but select the appropriate stage. Do not recommend executing blocked delivery; recommend an independent preparation step or actionable prerequisite instead.
 
-### 4. Verify the actionable dependency frontier
+**Complete when:** every displayed issue has a defensible next action and its material blockers/limitations are known.
 
-Before ranking, inspect **native GitHub relationships for every proposed final recommendation**, using the repository's actual hierarchy and dependency endpoints. Apply the same verification standard to parent maps and delivery tickets:
+### 4. Rank and stop
 
-- `blocked_by`: fetch the linked issues and **verify each issue's current open/closed state**. A count alone is insufficient.
-- `blocking`: verify downstream issues when claiming that completing a candidate unlocks other work.
-- Native parent/child links: verify ownership and ancestry independently of dependency links.
-- Assignment/claim, acceptance criteria, linked PRs, and relevant comments: inspect when they affect the proposed next action.
+Rank candidates by **contribution to the selected goal**, ability to progress now, and downstream unblocking value; use explicit project priorities as evidence, not a substitute for actionability. Prefer the closest actionable step on a critical dependency path over a high-profile but blocked milestone. Aim for ten useful recommendations when the pool supports them; verify replacement candidates before returning a very short list. Never pad with organizational maps, blocked actions, or unverifiable issues.
 
-If a candidate's proposed next step depends on an **open** blocker, follow `blocked_by` recursively toward the **actionable frontier**: an open prerequisite whose proposed next step can begin now. Continue through multi-level chains as needed; deduplicate visited nodes, detect cycles, and report missing permissions or failed lookups. A blocker outside the selected scope may explain the bottleneck, but label it as **external dependency**, not a descendant. Prefer recommending an actionable in-scope prerequisite; disclose when progress depends on out-of-scope work.
+Output a compact numbered list, with scope and coverage stated briefly:
 
-**Separate preparation from execution.** An issue blocked for implementation or final approval may still be independently actionable for `/triage`, `/grill-with-docs`, or `/to-spec`. Recommend that preparation only if there is a **specific unresolved question or readiness gap that can be resolved now**. State explicitly that execution remains blocked. A label alone does not establish such a gap.
+`1. [Issue title (#123)](https://github.com/OWNER/REPO/issues/123) — /to-spec`
+`   Why: Clarifying this workflow enables two dependent delivery tickets.`
 
-**Never recommend blocked implementation or approval as ready work.** Do not rank a high-level blocked gate first solely because it is strategically important. Instead identify the nearest verified actionable prerequisite or, if none exists, report the blocker and the necessary human/coordination step.
+Each item has a **real issue link**, exactly one recommended main-flow skill (or **Human action**), and a concrete reason tied to the goal. Mention an open delivery blocker when relevant, distinguishing it from a blocker to the *recommended* preparation step. If fewer than ten qualify, give a brief, evidence-based explanation; if discovery was incomplete, mark the result provisional.
 
-For every final recommendation, verify its **current open state, native parent/ancestry, native `blocked_by` relationships and current blocker states, ownership/assignment, and the specific next action**. For a parent, also verify whether an open descendant already owns the proposed action. A failure to verify these relationships **disqualifies the candidate from the verified ranked list**; report the gap separately and inspect a replacement candidate. Do not use “dependencies not checked” as a footnote on a recommendation. Refill the shortlist as necessary; aim for ten credible items when available, but never invent or pad.
-
-**Done when:** every displayed recommendation has verified open state, ancestry, native blockers, ownership, and an actionable next step; parent recommendations have been checked against open descendants. If fewer than ten remain, explain briefly whether this reflects the verified candidate pool or incomplete verification.
-
-### 5. Choose the main-flow handoff
-
-Recommend the appropriate **main-flow AI Hero skill**, verifying installed names where necessary:
-
-- `/grill-with-docs` — unresolved product, business, architecture, or specification decisions.
-- `/to-spec` — outcome understood but specification missing or inadequate.
-- `/to-tickets` — approved specification needs dependency-aware, agent-sized tickets.
-- `/triage` — incoming issue needs ownership, scope, evidence, or readiness assessment.
-- `/implement` — specified, open, **unblocked**, unclaimed delivery ticket.
-- `/code-review` — an actual linked PR or reviewable change.
-- **Human action** — acceptance, approval, or coordination without a suitable main-flow skill.
-
-Do not recommend specialized techniques (`/tdd`, `/research`, `/diagnosing-bugs`) as the `/next` handoff. Do not route completed `/to-tickets` work automatically through `/triage`. Assigned work is not an unclaimed pickup; mention it only for a genuine human, review, or coordination action.
-
-**Done when:** each selected action has one appropriate handoff and a verified readiness explanation.
-
-### 6. Rank, present, stop
-
-Rank by: **(1) verified downstream unblocking impact; (2) contribution to the selected business outcome; (3) whether the next step is actionable now; (4) ability to turn unclear work into agent-ready work; (5) ownership and explicit repository priority.** Compare across workflow stages for broad `/next`; respect the user's filter for `/next triage`, `/next bugs`, and `/next ready`. Use judgment, not fabricated scores or quotas. Avoid filling the list with blocked release/acceptance gates or organizational parent maps when actionable prerequisite or descendant work exists. Rank verified actionable leaf tickets ahead of parents unless the parent has a unique, concrete decision or governance action.
-
-Present **up to ten distinct numbered actions**, highest value first. Show fewer only when fewer credible candidates can be verified after examining replacement candidates; do not pad with irrelevant tickets. Keep unverified candidates outside the ranked list and disclose them briefly if material.
-
-Format:
-
-`1. [Issue title (#123)](issue-url) — /skill-name`
-
-`   Why: One sentence stating the actionable next step and what it advances or unblocks.`
-
-If preparation is possible but execution is blocked, say so in the Why sentence. If the blocker is outside scope, identify that explicitly. Use **Human action** when appropriate.
-
-Briefly state scope, `evaluated X of Y matching open issues`, and verification limitations. Use **provisional** when lightweight coverage is incomplete or important relationships remain unverified. Never claim a definitive top ten from a small sample. Omit long invocation commands, generated prompts, expected-result sections, and second-stage queue menus.
-
-**Stop.** The user chooses the next AI Hero skill. Do not invoke it, conduct the interview, create tickets, implement, review, or modify GitHub.
-
-## Boundaries
-
-- **Read-only:** never create, assign, claim, comment, close, label, reparent, or alter dependencies.
-- Respect repository-specific issue rules and domain documentation; keep project-specific issue IDs out of this generic skill.
-- Closed issues provide context, not pickup recommendations.
-- Native dependency states and relationships are authoritative; issue-body claims and counts alone are not.
-- Report incomplete coverage and relationship failures plainly. The result is a **recommendation, not execution**.
+**Stop.** Do not run the recommended skill, edit issues, change labels, assign work, or modify GitHub.
