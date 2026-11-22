@@ -1,88 +1,91 @@
 ---
 name: next
-description: Navigate a repository's issue backlog to choose the next piece of work. Use when the user invokes /next, asks what to work on next, or wants to explore initiatives, features, and actionable tickets before entering an existing AI Hero workflow.
+description: Navigate a repository's GitHub issue hierarchy and open work to choose the next ticket and hand it to an existing AI Hero skill. Use for /next, backlog exploration, or deciding what to work on next.
+metadata:
+  version: "1.3.1"
 ---
 
 # Next — backlog navigator
 
-Find the next useful action without creating another project-management workflow. This is a **read-only discovery and routing skill**. The issue tracker remains authoritative; existing skills own decisions, triage, specification, delivery, and review.
+Find the next useful action through **scope → work queue → open ticket → existing skill**. This is read-only navigation, not another issue-management workflow. GitHub and the repository's agent conventions remain authoritative.
 
 ## Invocation
 
-- `/next` — discover the repository and offer top-level issue scopes.
-- `/next <issue-number>` — open an issue as a scope, or assess its next action if it is a leaf.
-- `/next <scope>` — use a documented scope alias such as `mvp`, or `all` for the full inventory.
-- `/next` in the same session — continue the unambiguous selected scope; otherwise offer top-level choices. Never infer scope from branch names, recent activity, or unrelated chat history.
+- `/next --version` — report `metadata.version` from this loaded skill and stop; do not query GitHub. This identifies the version the agent has loaded, not necessarily the version on GitHub or in the shared skill store.
 
-## 1. Discover the tracker
+- `/next` — discover the current repository and offer its top-level scopes.
+- `/next <issue-number>` — jump to that issue's subtree, or assess the issue itself if it is a leaf.
+- `/next <scope>` — use repository-documented aliases; `all` means all issues in the repository.
+- Continue the selected scope within an unambiguous session; otherwise show top-level choices. Do not guess scope from branch, recent activity, or unrelated conversations.
 
-1. Determine the repository from its remote or explicit context; ask if ambiguous.
-2. Read the repository's agent and issue-tracker conventions, when present (for example `AGENTS.md`, `docs/agents/issue-tracker.md`, `docs/agents/triage-labels.md`). These define hierarchy, ownership, labels, and dependency semantics. Read domain docs only when interpreting a candidate requires them.
-3. Fetch **all open and closed issues**, following pagination to completion. Exclude pull requests from the issue inventory; inspect linked PRs separately for review work. Discover native parent/child relationships and blockers through the tracker API, with documented fallbacks only where native support is unavailable.
-4. Establish coverage: issues fetched versus total reported, relationship retrieval failures, and any inaccessible scopes. Never describe an incomplete scan as complete.
+## 1. Discover the repository and conventions
 
-**Done when:** repository, tracker rules, root scopes, and inventory coverage are established or limitations are explicit.
+1. Resolve the GitHub repository from the current remote or explicit user input; ask if ambiguous.
+2. Read `AGENTS.md` and the repository's issue-tracker and triage-label configuration, where present (for example `docs/agents/issue-tracker.md`, `docs/agents/triage-labels.md`). Consult domain documentation only when interpreting a selected ticket requires it.
+3. **Use the installed GitHub CLI as the primary interface:** `gh issue`, `gh pr`, and `gh api`; inspect `gh --version` and the relevant command's `--help` if compatibility is uncertain. Use `--repo` when needed. Use `--json`, `--jq`, `jq`, and `gh api --paginate` where supported. Prefer native CLI/API queries over Python, custom scripts, or scraping for routine GitHub discovery and relationship traversal. If native CLI features cannot express a query, use `gh api`; disclose unavailable data rather than inventing it.
+4. Fetch a paginated inventory of **open and closed issues** for navigation and progress, excluding PRs. Keep issue identity, state, title, and relationships; avoid eagerly fetching every issue's comments, blockers, and detailed evidence. Identify documented roots and any missing coverage. A complete inventory does **not** establish complete relationship coverage.
 
-## 2. Explore scopes
+**Done when:** repository, applicable conventions, root scopes, and inventory limitations are known.
 
-Offer a short list of actual root initiatives/maps, each with linked name and issue number, purpose, and progress. At each selection show immediate child scopes and offer **This entire scope** and **Back / Change scope**.
+## 2. Navigate scopes
 
-- Navigate native hierarchy to whatever depth exists; do not require three levels. Include closed grouping issues for orientation.
-- For every displayed count, state whether it covers **immediate children** or **all descendants**, and whether the scope issue itself is excluded. Use `open / closed / total` with a clear denominator. Closure is not proof of business acceptance.
-- Prefer concise descendant totals on high-level scope choices where they can be verified; otherwise show direct-child counts with that label or omit the count.
-- Before skipping feature/specification navigation, inspect actual children. If none are meaningful groupings, say so briefly (for example, “No further feature groupings found; showing queues for the entire workstream”). Do not claim this without checking.
-- If the tracker lacks native hierarchy, use documented groupings such as milestones or labels as **views**, not invented parents.
+Present a short **numbered** menu of real root initiatives or documented grouping views. On selection, show immediate child scopes and allow further drill-down. Offer **This entire scope** at each level. Do not force a fixed depth: inspect actual children before skipping feature/specification groupings. If there are no meaningful child groupings, explain briefly and proceed to queues.
 
-**Done when:** the user selects a subtree or the whole repository, or explicitly requests a direct recommendation.
+- Native parent/child edges represent grouping or ownership, **not** blockers. Where native hierarchy is absent, use documented milestones/labels as clearly marked views, never invented parent edges.
+- Include closed grouping/ancestor issues when necessary to find open descendants or explain history. Closed issues are **not pickup candidates**.
+- For each displayed progress count, specify **direct children** or **all descendants**, and whether the scope issue itself is excluded. Use `open / closed / total`; closure does not establish business acceptance.
+- Preserve breadcrumb and numbered **Back / Change scope** options.
 
-## 3. Traverse the selected subtree before classifying
+**Done when:** the user selects a subtree, an individual issue, or the whole repository.
 
-**A complete issue inventory is not a complete subtree audit.** For the selected scope, recursively traverse **every native child**, including descendants beneath **closed intermediate parents**, until all reachable descendants are accounted for. Use pagination for child lists and detect cycles, duplicate references, and failed relationship lookups. If using a fallback grouping, disclose its limitations. Include the selected issue itself only if it is actionable, and state that choice.
+## 3. Establish the selected subtree's open-work frontier
 
-Construct the candidate set from **all open actionable descendants**, at any depth. Closed descendants provide history, not pickup candidates. Keep hierarchy edges separate from blocker edges. Resolve readiness, assignments, and open blockers for potential matches; distinguish unverified metadata from a verified absence of blockers.
+Traverse the selected scope's **entire native descendant tree**, including through closed intermediate parents, with pagination and cycle/duplicate detection. Record relationship lookup failures. This structural pass is needed to avoid overlooking open tickets; it does **not** require detailed review of closed issue bodies or comments.
 
-Before reporting any queue as empty, confirm that **every open actionable descendant** has been evaluated for that queue, or say the result is provisional. Never infer a subtree-wide absence from direct children alone.
+Build the work frontier from **open actionable descendants only**, at any depth. Include the selected issue itself only if actionable and state that explicitly. Closed issues remain structural nodes and optional contextual evidence. If a repository supplies a trustworthy open-issue filter plus ancestry data, use it to reduce calls while still proving that no open descendants are omitted.
 
-**Done when:** descendant counts, open-candidate coverage, and any traversal/verification gaps are known.
+**Do not audit all closed tickets for readiness.** Fetch closed-ticket content only when relevant to an open candidate's specification, historical decision, parentage, or dependency. Keep external blockers visible but outside the selected subtree's pickup candidates.
 
-## 4. Choose the work queue
+Report scope coverage separately: number of descendants found, open candidates found, relationship failures, and any uncertainty. Do not equate the issue inventory count with subtree verification.
 
-Present four choices **before listing tickets**, optionally with verified counts:
+**Done when:** the open-work frontier is complete or explicitly provisional.
 
-| Queue | Meaning | Default handoff |
-| --- | --- | --- |
-| **Needs decisions** | Unresolved business, product, architectural, or specification questions requiring human input | `/grill-with-docs` or equivalent |
-| **Needs triage** | Claims, ownership, scope, evidence, or readiness requiring evaluation | `/triage` |
-| **Ready for delivery** | Specified, unblocked, unclaimed open work permitted for pickup | `/implement` or equivalent |
-| **Needs review** | Implemented changes with linked PR/diff or documented review request | `/code-review` |
+## 4. Choose a work queue
 
-Queues are derived views, **not** hierarchy levels or new labels. Labels are evidence, not conclusive classification. Prefer the earliest unresolved gate when stages overlap, unless issue/PR evidence establishes a later stage. Flag human UAT or business sign-off separately; do not misclassify it as code review.
+Present exactly four **separately numbered** choices before listing tickets:
+
+1. **Needs decisions** — unresolved product, business, architecture, or specification questions → `/grill-with-docs` (or equivalent).
+2. **Needs triage** — claim, ownership, scope, evidence, or readiness needs evaluation → `/triage`.
+3. **Ready for delivery** — adequately specified, unblocked, unclaimed open work → `/implement` (or equivalent).
+4. **Needs review** — an actual reviewable change/linked PR or explicit review request → `/code-review`.
+
+Queues are derived views, not new hierarchy levels or labels. Use labels as evidence, not proof. Prefer the earliest unresolved gate unless actual issue/PR evidence establishes a later stage. Surface manual UAT or business sign-off as a distinct human action, not code review.
 
 **Done when:** the user chooses a queue.
 
-## 5. Show pickup candidates
+## 5. Evaluate open candidates and show tickets
 
-Show about five matching tickets initially, with **Show more**. For each: linked title/number, business outcome, current state/label, assignee, open blockers, why it fits, uncertainties, and suggested handoff.
+For the selected queue, inspect **all open actionable issues in the selected frontier** sufficiently to classify them. Retrieve labels, assignments, native blockers, and issue content as needed. Retrieve detailed comments and linked PR information **selectively** when classification depends on them; do not perform full evidence audits for every closed issue. Verify whether each blocker is still open. An unknown blocker state is **not** verified unblocked.
 
-- Delivery eligibility requires adequate specification/acceptance criteria, valid ownership under repository rules, **zero verified open blockers**, and no current claim/assignee. Keep blocked or assigned tickets out of unclaimed pickup results; optionally summarize them separately.
-- Review requires an actual reviewable change or explicit review request, not merely an issue label.
-- Decision/triage candidates already claimed by someone else must be clearly marked and not offered as unclaimed work.
-- Prefer repository priority, business impact, and dependency-unblocking value; do not invent urgency.
-- Report queue coverage, e.g. `Evaluated 14 of 14 open actionable descendants across 3 levels; 4 matches`, or `Evaluated 11 of 14; 3 unverified — results provisional`. Distinguish **no verified matches** from **verified empty queue**.
-- If no candidates exist, offer another queue or scope rather than pulling unrelated tickets into the selection.
+- For delivery, require valid ownership under repository policy, adequate acceptance criteria, no verified open blockers, and no assignee/claim. Exclude blocked, assigned, or uncertain candidates from the unclaimed pickup list; summarize them separately if useful.
+- For review, verify a linked PR/diff or explicit review request; don't infer review readiness from labels alone.
+- For decision/triage, identify already-claimed tickets and do not present them as unclaimed pickup work.
+- Rank using documented priority, business value, and dependency-unblocking impact; never invent urgency.
+- Show about five matches initially, then a numbered **Show more** option. Each ticket shows linked title and number, business outcome, relevant state/labels, assignee, open blockers or uncertainty, reason for classification, and recommended skill.
+- State **evaluated open candidates / total open actionable descendants**, number of matches, and unverified cases. Say **verified empty queue** only when every open actionable descendant has been evaluated for that queue; otherwise say **no verified matches yet** and describe the coverage gap.
 
-**Done when:** the user can choose a specific eligible ticket and understands the next action and coverage.
+**Done when:** the user can select an eligible open ticket, or understands why no eligible ticket was found.
 
 ## 6. Hand off without taking over
 
-When a ticket is selected, re-read its body, comments, labels, assignees, native parent, blockers, and linked PRs where relevant. Recheck eligibility because the tracker may have changed. Explain the evidence, then invoke or guide the user to the existing skill with the issue link and necessary context. Follow that skill's own approval, claim, domain, and acceptance rules. If skill invocation is unavailable, provide the exact command instead of claiming it ran.
+Re-read the selected issue's body, comments, labels, assignees, native parent, blockers, and relevant PRs; recheck eligibility immediately before handoff. Pass the issue link and essential evidence to the existing AI Hero skill, following that skill's own approval and claim rules. If direct skill invocation is unavailable, provide the exact command rather than claiming to have invoked it.
 
-**Read-only boundary:** navigation does not create, assign, comment on, close, relabel, reparent, or change issue/PR dependencies. Seek explicit approval for mutations and let the appropriate existing skill perform them. Never silently claim or implement work.
+**Read-only boundary:** `/next` does not create, assign, comment on, close, relabel, reparent, claim, or change issue/PR dependencies. Ask for explicit approval before any mutation and let the appropriate skill perform it. Do not silently implement work.
 
 ## Presentation contract
 
-- Keep navigation compact: **scope → work type → tickets → handoff**, with breadcrumb and Back / Change scope.
-- Show both direct-child and all-descendant counts only when their meanings are clear; never mix denominators.
-- Prefer native interactive choices when supported; otherwise numbered text options suffice.
-- Keep repository-specific issue IDs, root names, and label mappings out of this skill; discover them at runtime.
-- No dashboard, persistent database, or new GitHub labels required.
+- **Every selectable option is individually numbered**: initiatives, workstreams, features, queues, tickets, This entire scope, Show more, Back, and Change scope. Never combine multiple selectable workstreams under one number. Keep numbering unambiguous within the current menu.
+- Keep output compact and navigable, with a breadcrumb and brief business descriptions. Use native interactive controls when available, but preserve numbered text alternatives.
+- Distinguish inventory, hierarchy, and candidate-evaluation coverage; distinguish direct-child counts from descendant counts.
+- Prefer `gh` CLI and its native API support; use `jq` for JSON processing. Do not use Python for routine GitHub querying or hierarchy traversal.
+- Keep repository-specific root IDs, labels, domain terms, and ownership policies in the repository, not this skill. No new dashboard, database, or GitHub labels.
