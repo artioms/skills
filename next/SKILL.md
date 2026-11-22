@@ -2,12 +2,12 @@
 name: next
 description: Find the next meaningful action in a GitHub issue backlog and recommend the appropriate AI Hero skill. Use for /next, /next bugs, /next triage, /next ready, or choosing what to work on next.
 metadata:
-  version: "1.5.0"
+  version: "1.5.1"
 ---
 
 # Next
 
-Find what can move the project toward its goal, then recommend **one next action and the AI Hero skill to use**. Stop after the recommendation. This skill navigates and advises; it does not do the work.
+Find what can move the project toward its goal, then present **up to ten ranked next actions and the appropriate AI Hero skill for each**. Stop after presenting the list. This skill navigates and advises; it does not do the work.
 
 ## Invocation
 
@@ -32,7 +32,7 @@ Use the installed native GitHub CLI (`gh issue`, `gh pr`, `gh api`, including pa
 
 ### 2. Navigate
 
-For `/next` or a broad scope, show short, individually **numbered** choices from the actual hierarchy. Let the user drill down through initiatives, workstreams, and feature groups, or choose the entire current scope. Keep a breadcrumb and numbered Back option. At the root, call the repository-wide choice **Entire repository — find work across all initiatives**.
+For `/next` or a broad scope, show short, individually **numbered** choices from the actual hierarchy. Let the user drill down through initiatives, workstreams, and feature groups, or choose the entire current scope. Keep a breadcrumb. Offer a numbered Back option only when there is a parent navigation level; never show Back at repository roots. At the root, call the repository-wide choice **Entire repository — find work across all initiatives**.
 
 Traverse native parent/child relationships to find open descendants, including those under closed intermediate issues. Closed issues provide structure, progress, and relevant decisions; they are never pickup candidates. Parentage is not a blocking dependency. Where hierarchy is unavailable, label any documented grouping as a view, not as a native parent relationship.
 
@@ -60,21 +60,23 @@ Prefer actions that unblock other work or advance an explicit business outcome. 
 
 **Done when:** a short, evidence-based set of next actions is identified, or the reason none can be verified is clear.
 
-### 4. Recommend and stop
+### 4. Rank, recommend, and stop
 
-Show **up to five numbered next actions**, not a menu of empty workflow queues and not the same tickets twice. For each, give the linked issue title, what moves forward, why it matters, any blocker or claim, and the suggested AI Hero skill. Let the user select an action when there is more than one credible choice.
+Present **up to ten distinct, numbered next actions**, ordered from most useful to least useful for advancing the selected goal. Show fewer than ten if fewer credible actions exist; never pad with unrelated, closed, or invented tickets. Do not stop after recommending only the highest-ranked issue when other credible actions exist.
 
-For the selected action, recheck the issue's relevant status and give a compact final handoff:
+Rank by the evidence available: (1) work that unblocks other progress, (2) direct contribution to the selected business outcome, (3) whether the next step can be taken now, (4) unclaimed ownership for agent pickup, and (5) explicit repository priority. This is judgment, not a fabricated numeric score. Do not rank blocked implementation as ready; recommend its actionable prerequisite instead. Assigned work can be mentioned only when its next step is a legitimate coordination, review, or human action, clearly marked as claimed.
 
-- **Next action:** issue title and link, or the named human gate.
-- **Why now:** the business outcome or dependency this advances.
-- **Use:** the appropriate existing AI Hero skill, such as `/grill-with-docs`, `/to-spec`, `/to-tickets`, `/triage`, `/implement`, or `/code-review`.
-- **Run:** a copyable invocation with the issue link and concise context.
-- **Expected result:** the artifact or decision that should exist after that skill finishes.
+Use a compact, scannable format for each item:
 
-Recommend only skills that are actually available; if a needed skill is not installed, say so and name the required workflow without pretending it can run. For human validation, recommend the human acceptance process rather than mislabeling it as an AI Hero skill.
+`1. [Issue title (#123)](issue-url) — /skill-name`
 
-**Stop here.** Do not invoke the recommended skill, start an interview, write a spec, create tickets, implement, review code, or perform human acceptance. The user decides when to continue.
+`   Why: One sentence explaining what this advances or unblocks.`
+
+For human acceptance or other work with no suitable installed AI Hero skill, write **Human action** instead of inventing a skill. Verify that named skills exist in the environment. Do not include `Run:` sections, generated invocation prompts, code fences, or expected-result paragraphs. Avoid repeating the same issue in multiple categories.
+
+Briefly state the selected scope and coverage, including any uncertainty. The list itself is the final deliverable: **do not require the user to choose an item for a second recommendation**, and do not invoke any skill. The user chooses which skill to run next.
+
+**Stop here.** Do not conduct interviews, specify, create tickets, implement, review, validate, or modify the tracker.
 
 ## Boundaries
 
